@@ -16,7 +16,7 @@
  *
  ****************************************************************************/
 
-/// @file libc_stdio.c
+/// @file tc_libc_stdio.c
 
 /// @brief Test Case Example for Libc Stdio API
 
@@ -80,7 +80,7 @@ static void tc_libc_stdio_flush(void)
 }
 
 /**
-* @fn                   :tc_libc_stdio_avsprintf
+* @fn                   :tc_libc_stdio_vasprintf
 * @brief                :write formatted output to a dynamically allocated string
 * @scenario             :function shall write formatted output to a dynamically allocated string
 * API's covered         :avsprintf
@@ -88,13 +88,13 @@ static void tc_libc_stdio_flush(void)
 * Postconditions        :none
 * @return               :void
 */
-static void tc_libc_stdio_avsprintf(const char *format, ...)
+static void tc_libc_stdio_vasprintf(const char *format, ...)
 {
 	int ret_chk;
 	char *buffer;
 	va_list args;
 	va_start(args, format);
-	ret_chk = avsprintf(&buffer, format, args);
+	ret_chk = vasprintf(&buffer, format, args);
 	va_end(args);
 	TC_ASSERT_NEQ("avsprintf", buffer, NULL);
 	TC_ASSERT_EQ_CLEANUP("avsprintf",
@@ -480,8 +480,10 @@ static void tc_libc_stdio_puts(void)
 */
 static void tc_libc_stdio_perror(void)
 {
+#ifdef CONFIG_LIBC_STRERROR
 	char *result_msg = "No data available";
 	const char *test_msg;
+#endif
 
 	set_errno(ENODATA);
 #ifdef CONFIG_LIBC_STRERROR
@@ -590,7 +592,7 @@ static void tc_libc_stdio_putchar(void)
 int libc_stdio_main(void)
 {
 	tc_libc_stdio_flush();
-	tc_libc_stdio_avsprintf("%s", printable_chars);
+	tc_libc_stdio_vasprintf("%s", printable_chars);
 	tc_libc_stdio_snprintf();
 	tc_libc_stdio_sscanf();
 	tc_libc_stdio_sprintf();

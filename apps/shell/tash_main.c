@@ -49,10 +49,10 @@ enum tash_input_state_e {
 #define TASH_TASK_STACKSIZE   (4096)
 #define TASH_TASK_PRIORITY    (125)
 
-const char tash_prompt[] = "TASH>>";
+#define TASH_PROMPT           "TASH>>"
 #endif							/* CONFIG_TASH */
 
-int tash_running = FALSE;
+static int tash_running = FALSE;
 
 static void tash_remove_char(char *char_pos)
 {
@@ -197,7 +197,7 @@ static int tash_main(int argc, char *argv[])
 	tash_running = TRUE;
 
 	do {
-		nbytes = write(fd, tash_prompt, sizeof(tash_prompt));
+		nbytes = write(fd, (const void *)TASH_PROMPT, sizeof(TASH_PROMPT));
 		if (nbytes <= 0) {
 			shdbg("TASH: prompt is not displayed (errno = %d)\n", get_errno());
 #ifndef CONFIG_DISABLE_SIGNALS
@@ -208,7 +208,7 @@ static int tash_main(int argc, char *argv[])
 		line_buff = tash_read_input_line(fd);
 		shvdbg("TASH: input string (%s)\n", line_buff);
 
-		ret = tash_execute_cmdline(line_buff);
+		tash_execute_cmdline(line_buff);
 
 		tash_free(line_buff);
 	} while (tash_running);
@@ -220,13 +220,21 @@ static int tash_main(int argc, char *argv[])
 int tash_start(void)
 {
 	int pid;
+	int errcode;
 
 	pid = task_create("tash", TASH_TASK_PRIORITY, TASH_TASK_STACKSIZE, tash_main, (FAR char *const *)NULL);
 	if (pid < 0) {
-		printf("TASH is not started, error code = %d\n", pid);
+		errcode = errno;
+		DEBUGASSERT(errcode > 0);
+		return -errcode;
 	}
 
 	return pid;
+}
+
+void tash_stop(void)
+{
+	tash_running = FALSE;
 }
 #endif							/* CONFIG_TASH */
 
@@ -304,7 +312,7 @@ int tash_execute_cmdline(char *buff)
 
 					state = IN_VOID;
 					*buff = '\0';
-				break;
+					break;
 
 				case ASCII_QUOTE:
 					if (*(buff - 1) == ASCII_BACKSLASH) {

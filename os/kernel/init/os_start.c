@@ -61,6 +61,7 @@
 #include  <debug.h>
 
 #include  <tinyara/arch.h>
+#include  <tinyara/binfmt/binfmt.h>
 #include  <tinyara/compiler.h>
 #include  <tinyara/sched.h>
 #include  <tinyara/fs/fs.h>
@@ -88,6 +89,16 @@
 #include  "group/group.h"
 #endif
 #include  "init/init.h"
+#ifdef CONFIG_DEBUG_SYSTEM
+#include <tinyara/debug/sysdbg.h>
+#endif
+#ifdef CONFIG_KERNEL_TEST_DRV
+#include <tinyara/testcase_drv.h>
+#endif
+
+extern const uint32_t g_idle_topstack;
+#include <tinyara/mm/heap_regioninfo.h>
+extern bool heapx_is_init[CONFIG_MM_NHEAPS];
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -350,6 +361,11 @@ void os_start(void)
 	g_idleargv[1]  = NULL;
 	g_idletcb.argv = g_idleargv;
 
+	/* Fill the stack information to Idle task's tcb */
+	g_idletcb.cmn.adj_stack_size = CONFIG_IDLETHREAD_STACKSIZE;
+	g_idletcb.cmn.stack_alloc_ptr = (void *)(g_idle_topstack - CONFIG_IDLETHREAD_STACKSIZE);
+	g_idletcb.cmn.adj_stack_ptr = (void *)(g_idle_topstack - 4);
+
 	/* Then add the idle task's TCB to the head of the ready to run list */
 
 	dq_addfirst((FAR dq_entry_t *)&g_idletcb, (FAR dq_queue_t *)&g_readytorun);
@@ -365,6 +381,7 @@ void os_start(void)
 
 	sem_initialize();
 
+
 #if defined(MM_KERNEL_USRHEAP_INIT) || defined(CONFIG_MM_KERNEL_HEAP) || defined(CONFIG_MM_PGALLOC)
 	/* Initialize the memory manager */
 
@@ -376,9 +393,15 @@ void os_start(void)
 		/* Get the user-mode heap from the platform specific code and configure
 		 * the user-mode memory allocator.
 		 */
-
 		up_allocate_heap(&heap_start, &heap_size);
+
+#if CONFIG_MM_REGIONS > 1
+		mm_initialize(&BASE_HEAP[regionx_heap_idx[0]], heap_start, heap_size);
+		heapx_is_init[regionx_heap_idx[0]] = true;
+		up_addregion();
+#else
 		kumm_initialize(heap_start, heap_size);
+#endif
 #endif
 
 #ifdef CONFIG_MM_KERNEL_HEAP
@@ -400,6 +423,14 @@ void os_start(void)
 		mm_pginitialize(heap_start, heap_size);
 #endif
 	}
+#endif
+
+#ifdef CONFIG_APP_BINARY_SEPARATION
+	/* If app binary separation is enabled, then each application will have its own RAM
+	 * area called as the ram partition. The app's text, data, stack and heap will all be
+	 * allocated from this partition. The following call initializes the ram partition manager
+	 */
+	mm_initialize_ram_partitions();
 #endif
 
 #if defined(CONFIG_SCHED_HAVE_PARENT) && defined(CONFIG_SCHED_CHILD_STATUS)
@@ -430,6 +461,12 @@ void os_start(void)
 	{
 		wd_initialize();
 	}
+
+#if CONFIG_NFILE_DESCRIPTORS > 0
+	/* Initialize the file system (needed to support device drivers) */
+
+	fs_initialize();
+#endif
 
 	/* Initialize the POSIX timer facility (if included in the link) */
 
@@ -481,12 +518,6 @@ void os_start(void)
 	}
 #endif
 
-#if CONFIG_NFILE_DESCRIPTORS > 0
-	/* Initialize the file system (needed to support device drivers) */
-
-	fs_initialize();
-#endif
-
 #ifdef CONFIG_NET
 	/* Initialize the networking system.  Network initialization is
 	 * performed in two steps:  (1) net_setup() initializes static
@@ -508,6 +539,18 @@ void os_start(void)
 
 	up_initialize();
 
+	/* Auto-mount Arch-independent File Sysytems */
+
+	fs_auto_mount();
+
+#ifdef CONFIG_KERNEL_TEST_DRV
+	kernel_test_drv_register();
+#endif
+
+#if defined(CONFIG_DEBUG_SYSTEM)
+	sysdbg_init();
+#endif
+
 #if defined(CONFIG_TTRACE)
 	ttrace_init();
 #endif
@@ -523,6 +566,12 @@ void os_start(void)
 	 */
 
 	lib_initialize();
+
+#ifdef CONFIG_BINFMT_ENABLE
+	/* Initialize the binfmt system */
+
+	binfmt_initialize();
+#endif
 
 	/* IDLE Group Initialization **********************************************/
 #ifdef HAVE_TASK_GROUP
@@ -577,10 +626,7 @@ void os_start(void)
 		 * queue so that is done in a safer context.
 		 */
 
-		if (kmm_trysemaphore() == 0) {
-			sched_garbagecollection();
-			kmm_givesemaphore();
-		}
+		sched_garbagecollection();
 #endif
 
 		/* Perform any processor-specific idle state operations */

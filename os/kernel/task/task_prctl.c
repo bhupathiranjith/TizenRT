@@ -65,8 +65,17 @@
 #include <tinyara/sched.h>
 #include <tinyara/ttrace.h>
 
+#ifdef CONFIG_MESSAGING_IPC
+#include <sys/types.h>
+#include <messaging/messaging.h>
+#include "messaging/message_ctrl.h"
+#endif
 #include "sched/sched.h"
 #include "task/task.h"
+
+#ifdef CONFIG_TASK_MONITOR
+#include "task_monitor/task_monitor_internal.h"
+#endif
 
 /************************************************************************
  * Private Functions
@@ -149,6 +158,9 @@ int prctl(int option, ...)
 
 			strncpy(tcb->name, name, CONFIG_TASK_NAME_SIZE);
 			tcb->name[CONFIG_TASK_NAME_SIZE] = '\0';
+#ifdef CONFIG_HEAPINFO_USER_GROUP
+			heapinfo_check_group_list(tcb->pid, tcb->name);
+#endif
 		} else {
 			/* The returned value will be null-terminated, truncating if necessary */
 
@@ -158,26 +170,113 @@ int prctl(int option, ...)
 	}
 	break;
 #else
-	sdbg("Option not enabled: %d\n", option);
-	err = ENOSYS;
-	goto errout;
+		sdbg("Option not enabled: %d\n", option);
+		err = ENOSYS;
+		goto errout;
 #endif
-
+#ifdef CONFIG_MESSAGING_IPC
+	case PR_MSG_SAVE:
+	{
+		int ret;
+		char *port_name = va_arg(ap, char *);
+		pid_t pid = va_arg(ap, int);
+		int prio = va_arg(ap, int);
+		ret = messaging_save_receiver(port_name, pid, prio);
+		if (ret != OK) {
+			va_end(ap);
+			return ERROR;
+		}
+	}
+	break;
+	case PR_MSG_READ:
+	{
+		char *port_name = va_arg(ap, char *);
+		int *recv_arr = va_arg(ap, int *);
+		int *recv_cnt = va_arg(ap, int *);
+		int total_cnt;
+		static int curr_cnt = 0;
+		int ret;
+		ret = messaging_read_list(port_name, recv_arr, &total_cnt);
+		if (ret == ERROR) {
+			va_end(ap);
+			return ret;
+		}
+		curr_cnt += ret;
+		*recv_cnt = curr_cnt;
+		va_end(ap);
+		if (curr_cnt == total_cnt) {
+			/* Read whole receivers information. */
+			curr_cnt = 0;
+			return MSG_READ_ALL;
+		} else {
+			return MSG_READ_YET;
+		}
+	}
+	break;
+	case PR_MSG_REMOVE:
+	{
+		int ret;
+		char *port_name = va_arg(ap, char *);
+		ret = messaging_remove_list(port_name);
+		va_end(ap);
+		return ret;
+	}
+	break;
+#else /* CONFIG_MESSAGING_IPC */
+	case PR_MSG_SAVE:
+	case PR_MSG_READ:
+	case PR_MSG_REMOVE:
+	{
+		sdbg("Not supported.\n");
+		err = ENOSYS;
+		goto errout;
+	}
+#endif /* CONFIG_MESSAGING_IPC */
+	case PR_GET_STKLOG:
+	{
+#if defined(CONFIG_ENABLE_STACKMONITOR) && defined(CONFIG_DEBUG)
+		struct stkmon_save_s *dest_buf = va_arg(ap, struct stkmon_save_s *);
+		stkmon_copy_log(dest_buf);
+#else
+		sdbg("Not supported StackMonitor Logging\n");
+		err = ENOSYS;
+		goto errout;
+#endif
+	}
+	break;
+#ifdef CONFIG_TASK_MONITOR
+	case PR_MONITOR_REGISTER:
+	{
+		int interval = va_arg(ap, int);
+		int ret;
+		ret = task_monitor_register_list(getpid(), interval);
+		if (ret < 0) {
+			err = ret;
+			goto errout;
+		}
+	}
+	break;
+	case PR_MONITOR_UPDATE:
+	{
+		struct tcb_s *tcb;
+		tcb = sched_gettcb(getpid());
+		if (tcb == NULL) {
+			sdbg("Fail to update the status in task monitor.\n");
+			goto errout;
+		}
+		tcb->is_active = true;
+	}
+	break;
+#endif
 	default:
 		sdbg("Unrecognized option: %d\n", option);
 		err = EINVAL;
 		goto errout;
 	}
 
-	/* Not reachable unless CONFIG_TASK_NAME_SIZE is > 0.  NOTE: This might
-	 * change if additional commands are supported.
-	 */
-
-#if CONFIG_TASK_NAME_SIZE > 0
 	va_end(ap);
 	trace_end(TTRACE_TAG_TASK);
 	return OK;
-#endif
 
 errout:
 	va_end(ap);

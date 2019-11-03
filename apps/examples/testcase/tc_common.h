@@ -20,9 +20,17 @@
 #define __EXAMPLES_TESTCASE_TESTCASE_COMMON_H
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
-int total_pass;
-int total_fail;
+enum tc_op_type_e {
+	TC_START,
+	TC_END,
+	TC_OP_TYPE_MAX
+};
+typedef enum tc_op_type_e tc_op_type_t;
+
+extern int total_pass;
+extern int total_fail;
 
 #define TC_ASSERT_CLEANUP(api_name, var, freeResource) \
 {\
@@ -34,7 +42,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT(api_name, var) TC_ASSERT_CLEANUP(api_name, var, )
+#define TC_ASSERT(api_name, var) TC_ASSERT_CLEANUP(api_name, var, ((void)0))
 
 #define TC_ASSERT_EQ_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -65,7 +73,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_EQ(api_name, var, ref) TC_ASSERT_EQ_RETURN(api_name, var, ref, )
+#define TC_ASSERT_EQ(api_name, var, ref) TC_ASSERT_EQ_RETURN(api_name, var, ref, ((void)0))
 
 #define TC_ASSERT_NEQ_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -77,7 +85,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_NEQ(api_name, var, ref) TC_ASSERT_NEQ_CLEANUP(api_name, var, ref, )
+#define TC_ASSERT_NEQ(api_name, var, ref) TC_ASSERT_NEQ_CLEANUP(api_name, var, ref, ((void)0))
 
 #define TC_ASSERT_GT_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -89,7 +97,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_GT(api_name, var, ref) TC_ASSERT_GT_CLEANUP(api_name, var, ref, )
+#define TC_ASSERT_GT(api_name, var, ref) TC_ASSERT_GT_CLEANUP(api_name, var, ref, ((void)0))
 
 #define TC_ASSERT_GEQ_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -101,7 +109,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_GEQ(api_name, var, ref) TC_ASSERT_GEQ_CLEANUP(api_name, var, ref, )
+#define TC_ASSERT_GEQ(api_name, var, ref) TC_ASSERT_GEQ_CLEANUP(api_name, var, ref, ((void)0))
 
 #define TC_ASSERT_LT_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -113,7 +121,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_LT(api_name, var, ref) TC_ASSERT_LT_CLEANUP(api_name, var, ref, )
+#define TC_ASSERT_LT(api_name, var, ref) TC_ASSERT_LT_CLEANUP(api_name, var, ref, ((void)0))
 
 #define TC_ASSERT_LEQ_CLEANUP(api_name, var, ref, freeResource) \
 {\
@@ -125,7 +133,7 @@ int total_fail;
 	} \
 }
 
-#define TC_ASSERT_LEQ(api_name, var, ref) TC_ASSERT_LEQ_CLEANUP(api_name, var, ref, )
+#define TC_ASSERT_LEQ(api_name, var, ref) TC_ASSERT_LEQ_CLEANUP(api_name, var, ref, ((void)0))
 
 #define TC_SUCCESS_RESULT() \
 {\
@@ -135,10 +143,19 @@ int total_fail;
 
 #define TC_FREE_MEMORY(buffer) \
 {\
-	if ((buffer) != NULL) {\
+	if ((buffer) != NULL) { \
 		free(buffer); \
 		buffer = NULL; \
 	} \
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int testcase_state_handler(tc_op_type_t type, const char *tc_name);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

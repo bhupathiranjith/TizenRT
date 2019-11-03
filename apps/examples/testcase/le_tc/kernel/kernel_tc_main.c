@@ -22,25 +22,36 @@
 
 #include <tinyara/config.h>
 #include <stdio.h>
-#include <semaphore.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <tinyara/testcase_drv.h>
+#include <tinyara/fs/fs.h>
+#include <tinyara/fs/ioctl.h>
+#include "tc_common.h"
 #include "tc_internal.h"
 
-extern sem_t tc_sem;
-extern int working_tc;
+static int g_tc_fd;
+
+int tc_get_drvfd(void)
+{
+	return g_tc_fd;
+}
 
 #ifdef CONFIG_BUILD_KERNEL
 int main(int argc, FAR char *argv[])
 #else
-int kernel_tc_main(int argc, char *argv[])
+int tc_kernel_main(int argc, char *argv[])
 #endif
 {
-	sem_wait(&tc_sem);
-	working_tc++;
+	if (testcase_state_handler(TC_START, "Kernel TC") == ERROR) {
+		return ERROR;
+	}
 
-	total_pass = 0;
-	total_fail = 0;
-
-	printf("\n########## Kernel TC Start ##########\n");
+	g_tc_fd = open(KERNEL_TC_DRVPATH, O_WRONLY);
+	if (g_tc_fd < 0) {
+		tckndbg("Failed to open testcase driver %d\n", errno);
+		return ERROR;
+	}
 
 #ifdef CONFIG_TC_KERNEL_TASH_HEAPINFO
 	tash_heapinfo_main();
@@ -51,9 +62,6 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_CLOCK
-#if (!defined CONFIG_SYSTEM_TIME64)
-#error CONFIG_SYSTEM_TIME64 is needed for testing CLOCK TC
-#endif
 	clock_main();
 #endif
 
@@ -62,14 +70,11 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_ERRNO
-#if (!defined CONFIG_LIBC_STRERROR)
-#error CONFIG_LIBC_STRERROR is needed for testing ERRNO TC
-#endif
 	errno_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_GROUP
-#if (!defined CONFIG_SCHED_HAVE_PARENT) || (!defined CONFIG_SCHED_CHILD_STATUS)
+#if !defined(CONFIG_SCHED_HAVE_PARENT) || !defined(CONFIG_SCHED_CHILD_STATUS)
 #error CONFIG_SCHED_HAVE_PARENT and CONFIG_SCHED_CHILD_STATUS are needed for testing GROUP TC
 #endif
 	group_main();
@@ -77,6 +82,10 @@ int kernel_tc_main(int argc, char *argv[])
 
 #ifdef CONFIG_TC_KERNEL_LIBC_FIXEDMATH
 	libc_fixedmath_main();
+#endif
+
+#ifdef CONFIG_TC_KERNEL_LIBC_INTTYPES
+	libc_inttypes_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_LIBC_LIBGEN
@@ -88,14 +97,7 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_LIBC_MISC
-#if (!defined CONFIG_DEBUG) || (!defined CONFIG_DEBUG_ERROR) || (!defined CONFIG_DEBUG_VERBOSE)
-#error CONFIG_DEBUG, CONFIG_DEBUG_ERROR and CONFIG_DEBUG_VERBOSE are needed for testing LIBC_MISC TC
-#endif
 	libc_misc_main();
-#endif
-
-#ifdef CONFIG_TC_KERNEL_LIBC_MQUEUE
-	libc_mqueue_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_LIBC_PTHREAD
@@ -118,25 +120,18 @@ int kernel_tc_main(int argc, char *argv[])
 	libc_signal_main();
 #endif
 
-#ifdef CONFIG_TC_KERNEL_LIBC_SPAWN
-	libc_spawn_main();
-#endif
-
 #ifdef CONFIG_TC_KERNEL_LIBC_STDIO
 	libc_stdio_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_LIBC_STDLIB
-#if (!defined CONFIG_FS_WRITABLE)
+#if !defined(CONFIG_FS_WRITABLE)
 #error CONFIG_FS_WRITABLE is needed for testing LIBC_STDLIB TC
 #endif
 	libc_stdlib_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_LIBC_STRING
-#if (!defined CONFIG_LIBC_STRERROR)
-#error CONFIG_LIBC_STRERROR is needed for testing LIBC_STRING TC
-#endif
 	libc_string_main();
 #endif
 
@@ -161,16 +156,10 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_SCHED
-#if (!defined CONFIG_SCHED_HAVE_PARENT)
-	/* #error CONFIG_SCHED_HAVE_PARENT is needed for testing SCHED TC */
-#endif
 	sched_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_SEMAPHORE
-#if (!defined CONFIG_DEBUG) || (!defined CONFIG_SEM_PREALLOCHOLDERS) || (!defined CONFIG_PRIORITY_INHERITANCE)
-#error CONFIG_DEBUG, CONFIG_SEM_PHDEBUG, CONFIG_SEM_PREALLOCHOLDERS and CONFIG_PRIORITY_INHERITANCE are needed for testing SEMAPHORE TC
-#endif
 	semaphore_main();
 #endif
 
@@ -179,9 +168,6 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_TASK
-#if (!defined CONFIG_SCHED_ATEXIT) || (!defined CONFIG_SCHED_ONEXIT) || (!defined CONFIG_TASK_NAME_SIZE)
-#error CONFIG_SCHED_ATEXIT, CONFIG_SCHED_ONEXIT and CONFIG_TASK_NAME_SIZE are needed for testing TASK TC
-#endif
 	task_main();
 #endif
 
@@ -190,7 +176,7 @@ int kernel_tc_main(int argc, char *argv[])
 #endif
 
 #ifdef CONFIG_TC_KERNEL_TIMER
-	timer_main();
+	timer_tc_main();
 #endif
 
 #ifdef CONFIG_TC_KERNEL_ROUNDROBIN
@@ -200,10 +186,47 @@ int kernel_tc_main(int argc, char *argv[])
 #ifdef CONFIG_TC_KERNEL_UMM_HEAP
 	umm_heap_main();
 #endif
-	printf("\n########## Kernel TC End [PASS : %d, FAIL : %d] ##########\n", total_pass, total_fail);
 
-	working_tc--;
-	sem_post(&tc_sem);
+#ifdef CONFIG_TC_KERNEL_WORK_QUEUE
+	wqueue_main();
+#endif
+
+#ifdef CONFIG_TC_KERNEL_MEMORY_SAFETY
+	memory_safety_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_ENVIRON
+	itc_environ_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_LIBC_PTHREAD
+	itc_libc_pthread_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_LIBC_SEMAPHORE
+	itc_libc_semaphore_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_SEMAPHORE
+	itc_semaphore_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_SCHED
+	itc_sched_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_TIMER
+	itc_timer_main();
+#endif
+
+#ifdef CONFIG_ITC_KERNEL_PTHREAD
+	itc_pthread_main();
+#endif
+
+	close(g_tc_fd);
+	g_tc_fd = -1;
+
+	(void)testcase_state_handler(TC_END, "Kernel TC");
 
 	return 0;
 }

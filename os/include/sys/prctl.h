@@ -84,12 +84,18 @@
 
 /**
  * @ingroup SCHED_KERNEL
+ * @brief Types of Prctl API
  */
-#define PR_SET_NAME 1
-/**
- * @ingroup SCHED_KERNEL
- */
-#define PR_GET_NAME 2
+enum prctl_type_e {
+	PR_SET_NAME = 1,
+	PR_GET_NAME = 2,
+	PR_GET_STKLOG = 3,
+	PR_MSG_SAVE = 4,
+	PR_MSG_READ = 5,
+	PR_MSG_REMOVE = 6,
+	PR_MONITOR_REGISTER = 7,
+	PR_MONITOR_UPDATE = 8,
+};
 
 /****************************************************************************
  * Public Type Definitions
@@ -123,7 +129,7 @@ extern "C" {
  *     EFAULT optional arg1 is not a valid address.
  *     ESRCH  No task/thread can be found corresponding to that specified
  *       by optional arg1.
- * @since Tizen RT v1.0
+ * @since TizenRT v1.0
  */
 int prctl(int option, ...);
 

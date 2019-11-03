@@ -128,6 +128,7 @@
 
 #define NUM_PACKETS     50
 #define LOCAL_DEVICE "192.168.2.10"
+#define NETTEST_MAX_PACKETS 20000
 
 /****************************************************************************
  * Private Data
@@ -173,7 +174,7 @@ static void show_usage(void)
 	printf("\tudp: UDP\n");
 	printf("\tmtc: MULTICAST\n");
 	printf("\tbrc: BROADCAST\n");
-		
+
 	printf("ADDRESS\n");
 	printf("\tAddress to bind if mode is server\n");
 	printf("\t\t(If you want to choose the default interface then insert 0)\n");
@@ -261,6 +262,71 @@ return_with_close:
 	close(sock);
 }
 
+/* ------------------------------------------------------------ */
+/*                                                              */
+/* Receive Broadcast example.                                   */
+/*                                                              */
+/* ------------------------------------------------------------ */
+void broadcast_receive(uint32_t num_packets)
+{
+	int sockfd;
+	int is_broadcast = 1;
+	int count;
+	int nbytes;
+	char databuf[256];
+	struct sockaddr_in recvaddr;
+	struct sockaddr_in sendaddr;
+	socklen_t addrlen = sizeof(struct sockaddr_in);
+
+	printf("[BRSERVER] broadcast receive start!\n");
+
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		printf("[BRSERVER] socket create fail err(%d)\n", errno);
+		return;
+	}
+
+	if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &is_broadcast, sizeof(is_broadcast)) < 0) {
+		printf("[BRSERVER] set socket option fail err(%d)\n", errno);
+		goto return_with_close;
+	}
+
+	memset(&recvaddr, 0, sizeof(recvaddr));
+	recvaddr.sin_family = AF_INET;
+	recvaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	recvaddr.sin_port = htons(g_app_target_port);
+
+	if (bind(sockfd, (struct sockaddr *)&recvaddr, sizeof(recvaddr)) < 0) {
+		printf("[BRSERVER] bind fail err(%d)\n", errno);
+		goto return_with_close;
+	}
+
+	count = 0;
+
+	while (1) {
+		memset(databuf, 0, sizeof(databuf));
+
+		nbytes = recvfrom(sockfd, databuf, sizeof(databuf), 0, (struct sockaddr *)&sendaddr, (socklen_t *)&addrlen);
+		if (nbytes <= 0) {
+			printf("[BRSERVER] receive data fail err(%d)\n", errno);
+			goto return_with_close;
+		}
+		count++;
+		printf("[BRSERVER] received data from %s #%d : %s\n", inet_ntoa(sendaddr.sin_addr), count, databuf);
+
+		if (num_packets == 0) {
+			continue;
+		}
+		if (count >= num_packets) {
+			printf("[BRSERVER] exit BRSERVER as received sufficient packets for testing\n");
+			break;
+		}
+	}
+
+return_with_close:
+	close(sockfd);
+	return;
+}
 
 /* ------------------------------------------------------------ */
 /*                                                              */
@@ -798,7 +864,7 @@ int nettest_main(int argc, char *argv[])
 	g_app_target_addr = argv[3];
 	g_app_target_port = atoi(argv[4]);
 	num_packets_to_process = atoi(argv[5]);
-	if (num_packets_to_process < 0) {
+	if (num_packets_to_process < 0 || num_packets_to_process > NETTEST_MAX_PACKETS) {
 		goto err_with_input;
 	}
 
@@ -807,6 +873,8 @@ int nettest_main(int argc, char *argv[])
 			tcp_server_thread(num_packets_to_process);
 		} else if (proto == NT_UDP) {
 			udp_server_thread(num_packets_to_process);
+		} else if (proto == NT_BROADCAST) {
+			broadcast_receive(num_packets_to_process);
 		} else if (proto == NT_MULTICAST) {
 			if (argc != 7) {
 				goto err_with_input;
@@ -819,7 +887,7 @@ int nettest_main(int argc, char *argv[])
 		}
 		/* get interval */
 		pps = atoi(argv[6]);
-		if (pps < 0) {
+		if (pps <= 0) {
 			goto err_with_input;
 		}
 		interval = 1000000ul / pps; /* sleep interval */

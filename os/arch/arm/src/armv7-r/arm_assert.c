@@ -90,6 +90,16 @@
 #ifdef CONFIG_ARMV7M_MPU
 #include "mpu.h"
 #endif
+#include <stdbool.h>
+#ifdef CONFIG_BOARD_ASSERT_AUTORESET
+#include <sys/boardctl.h>
+#endif
+
+#if defined(CONFIG_DEBUG_DISPLAY_SYMBOL)
+#include <stdio.h>
+bool abort_mode = false;
+static bool recursive_abort = false;
+#endif
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -163,6 +173,10 @@ struct stackframe {
 	uint32_t framePointer;		// R11
 };
 
+/****************************************************************************
+ * Name: is_text_address
+ ****************************************************************************/
+
 static int is_text_address(unsigned long programCounter)
 {
 
@@ -189,6 +203,123 @@ static int is_text_address(unsigned long programCounter)
 }
 
 #define MEM_READ(x) (*(uint32_t volatile*)(x))
+
+/****************************************************************************
+ * Name: get_symbol
+ * Below API works if there is existance of System.map file in rom fs
+ ****************************************************************************/
+#ifdef CONFIG_DEBUG_DISPLAY_SYMBOL
+int get_symbol(unsigned long search_addr, char *buffer, size_t buflen)
+{
+	FILE *pFile;
+	int total;
+	unsigned long sym_offset;
+	unsigned long total_size;
+	unsigned long addr;
+	unsigned long next_addr;
+	int first = 0;
+	int last;
+	int mid;
+	char line[128] = { '\0' };
+	char data[6][128] = { {'\0', '\0'} };
+	char c;
+	int word;
+	int ch_in_word;
+	int read_line;
+	int ch_in_line;
+
+	if (recursive_abort) {
+		/* If there is a crash in file system, below operation would
+		   lead to recursive abort, as this api will be called inside
+		   abort handler and tries to access the file system api.
+		   To avoid recursive abort, just return from here if we are
+		   already in abort mode.
+		 */
+		return -1;
+	}
+
+	pFile = fopen("/rom/System.map", "r");
+
+	/* Check if file exists */
+	if (pFile == NULL) {
+		lldbg("Could not open file: /rom/System.map\n");
+		return -1;
+	}
+	// obtain file size:
+	fseek(pFile, 0, SEEK_END);
+	last = ftell(pFile);
+
+	rewind(pFile);
+	mid = (first + last) / 2;
+	while (first <= last) {
+		fseek(pFile, mid, SEEK_SET);
+
+		/* If the file pointer is in the mid of the line, make sure
+		 * it's been properly moved to start of next line
+		 */
+		for (c = getc(pFile); c != '\n'; c = getc(pFile)) {
+			if (c == EOF) {
+				lldbg("Reached end of file and couldn't find symbol\n");
+				fclose(pFile);
+				return -1;
+			}
+		}
+
+		word = 0;
+		// Read 2 lines and Split the string as words
+		for (read_line = 0; read_line < 2; read_line++) {
+			fgets(line, 128, pFile);
+			ch_in_line = 0;
+			ch_in_word = 0;
+			while (line[ch_in_line] != '\0') {
+				if (line[ch_in_line] != ' ') {
+					data[word][ch_in_word++] = line[ch_in_line];
+				} else {
+					data[word][ch_in_word] = '\0';
+					word++;
+					ch_in_word = 0;
+				}
+				ch_in_line++;
+				if (line[ch_in_line] == '\0') {
+					data[word][ch_in_word] = '\0';
+					word++;
+					ch_in_word = 0;
+				}
+			}
+		}
+		/* Convert the string data to hexadecimal */
+		addr = strtoul(data[0], NULL, 16);
+		next_addr = strtoul(data[3], NULL, 16);
+		if (search_addr >= addr && search_addr < next_addr) {
+			total = snprintf(buffer, buflen, "%s", data[2]);
+			sym_offset = search_addr - addr;
+			total_size = next_addr - addr;
+			snprintf(&buffer[total - 1], buflen - total, "+0x%lx/0x%lx", sym_offset, total_size);
+			break;
+		}
+		if (search_addr < addr) {
+			last = mid - 1;
+		} else {
+			first = mid + 1;
+		}
+
+		mid = (first + last) / 2;
+	}
+	if (first > last) {
+		lldbg("symbol is not found in system map\n");
+		buffer = "";
+	}
+
+	/* Close the file */
+	fclose(pFile);
+
+	return 0;
+}
+#endif
+
+/****************************************************************************
+ * Name: unwind_frame_with_fp
+ ****************************************************************************/
 
 static int unwind_frame_with_fp(struct stackframe *stack_frame, uint32_t stacksize)
 {
@@ -217,6 +348,10 @@ static int unwind_frame_with_fp(struct stackframe *stack_frame, uint32_t stacksi
 	return 0;
 }
 
+/****************************************************************************
+ * Name: unwind_backtrace_with_fp
+ ****************************************************************************/
+
 static void unwind_backtrace_with_fp(arm_regs_t *regs, struct tcb_s *task)
 {
 	uint32_t ustacksize;
@@ -224,7 +359,7 @@ static void unwind_backtrace_with_fp(arm_regs_t *regs, struct tcb_s *task)
 	struct tcb_s *current = this_task();
 
 #if CONFIG_TASK_NAME_SIZE > 0
-	lldbg("Task(pid): %s(%d), TaskAddr: [0x%p] and [Current : %s]\n", task ? task->name : "No Task", task->pid, task, current ? current->name : "No Task");
+	lldbg("Task: [%s], Pid: [%d], TaskAddr: [0x%p] and [Current : %s]\n", task ? task->name : "No Task", task->pid, task, current ? current->name : "No Task");
 #else
 	lldbg("pid: %d, TaskAddr: [0x%p] \n", task->pid, task);
 #endif
@@ -240,7 +375,7 @@ static void unwind_backtrace_with_fp(arm_regs_t *regs, struct tcb_s *task)
 		stack_frame.programCounter = (uint32_t)unwind_backtrace_with_fp;
 		stack_frame.stackPointer = up_getsp();
 		stack_frame.framePointer = (uint32_t)FRAME_POINTER_ADDR;
-	} else if (regs->reg[REG_R15] && regs->reg[REG_R14]) {
+	} else if (regs && regs->reg[REG_R15] && regs->reg[REG_R14] && task == current) {
 		lldbg("Registers are Valid, We may be either Interrupt context/exception context\n");
 		stack_frame.programCounter = regs->reg[REG_R15];	/* pc */
 		stack_frame.stackPointer = regs->reg[REG_R13];	/* sp */
@@ -265,16 +400,26 @@ static void unwind_backtrace_with_fp(arm_regs_t *regs, struct tcb_s *task)
 		uint32_t current_addr = stack_frame.programCounter;
 		if (unwind_frame_with_fp(&stack_frame, ustacksize) >= 0) {
 			/* Print the call stack address */
-			lldbg("[<0x%p>]\n", (void *)current_addr);
+#ifdef CONFIG_DEBUG_DISPLAY_SYMBOL
+			char buffer[128];
+			if (get_symbol(current_addr, buffer, sizeof(buffer)) == 0) {
+				lldbg("[<0x%p>] %s\n", (void *)current_addr, buffer);
+			} else
+#endif
+			{
+				lldbg("[<0x%p>]\n", (void *)current_addr);
+			}
 		} else {
 			/* End of stack */
 			break;
 		}
 	}
 }
-#endif
 
-static uint32_t task_counter = 0;
+/****************************************************************************
+ * Name: print_callstack
+ ****************************************************************************/
+
 static void print_callstack(FAR struct tcb_s *tcb, FAR void *arg)
 {
 	uint32_t regs;
@@ -285,28 +430,32 @@ static void print_callstack(FAR struct tcb_s *tcb, FAR void *arg)
 			task_ctxt_regs.reg[regs] = current_regs[regs];
 		}
 	}
-#ifdef CONFIG_FRAME_POINTER
 	/* Unwind the task stack by using fp (R11) */
 	unwind_backtrace_with_fp(&task_ctxt_regs, tcb);
-	lldbg("Call stack displayed for %d of Tasks.\n", ++task_counter);
-#endif
+	lldbg("*******************************************************************************\n");
 
 }
 
+/****************************************************************************
+ * Name: dump_all_stack
+ ****************************************************************************/
+
 void dump_all_stack(void)
 {
-	/* Reset the counter which counts the callstack displyed */
-	task_counter = 0;
+	lldbg("*******************************************************************************\n");
+	lldbg("Printing the call stack of all the tasks in the system\n");
+	lldbg("*******************************************************************************\n");
 
 	/* Display Call stack for all available tasks in the system */
 	sched_foreach(print_callstack, NULL);
 }
 
+/****************************************************************************
+ * Name: dump_stack
+ ****************************************************************************/
+
 void dump_stack(void)
 {
-	/* Reset the counter which counts the callstack displyed */
-	task_counter = 0;
-
 	/* Disable the irqs */
 	irqstate_t flags = irqsave();
 
@@ -318,6 +467,7 @@ void dump_stack(void)
 	/* Restore the irqs */
 	irqrestore(flags);
 }
+#endif						/* End of CONFIG_FRAME_POINTER */
 
 /****************************************************************************
  * Name: up_taskdump
@@ -326,13 +476,24 @@ void dump_stack(void)
 #ifdef CONFIG_STACK_COLORATION
 static void up_taskdump(FAR struct tcb_s *tcb, FAR void *arg)
 {
+	size_t used_stack_size;
+
+	used_stack_size = up_check_tcbstack(tcb);
 	/* Dump interesting properties of this task */
 
 #if CONFIG_TASK_NAME_SIZE > 0
-	lldbg("%s: PID=%d Stack Used=%lu of %lu\n", tcb->name, tcb->pid, (unsigned long)up_check_tcbstack(tcb), (unsigned long)tcb->adj_stack_size);
+	lldbg("%10s | %5d | %4d | %7lu / %7lu\n",
+			tcb->name, tcb->pid, tcb->sched_priority,
+			(unsigned long)used_stack_size, (unsigned long)tcb->adj_stack_size);
 #else
-	lldbg("PID: %d Stack Used=%lu of %lu\n", tcb->pid, (unsigned long)up_check_tcbstack(tcb), (unsigned long)tcb->adj_stack_size);
+	lldbg("%5d | %4d | %7lu / %7lu\n",
+			tcb->pid, tcb->sched_priority, (unsigned long)used_stack_size,
+			(unsigned long)tcb->adj_stack_size);
 #endif
+
+	if (used_stack_size == tcb->adj_stack_size) {
+		lldbg("  !!! PID (%d) STACK OVERFLOW !!! \n", tcb->pid);
+	}
 }
 #endif
 
@@ -343,6 +504,18 @@ static void up_taskdump(FAR struct tcb_s *tcb, FAR void *arg)
 #ifdef CONFIG_STACK_COLORATION
 static inline void up_showtasks(void)
 {
+	lldbg("*******************************************\n");
+	lldbg("List of all tasks in the system:\n");
+	lldbg("*******************************************\n");
+
+#if CONFIG_TASK_NAME_SIZE > 0
+	lldbg("   NAME   |  PID  |  PRI |    USED /  TOTAL STACK\n");
+	lldbg("--------------------------------------------------\n");
+#else
+	lldbg("  PID | PRI |   USED / TOTAL STACK\n");
+	lldbg("----------------------------------\n");
+#endif
+
 	/* Dump interesting properties of each task in the crash environment */
 
 	sched_foreach(up_taskdump, NULL);
@@ -589,16 +762,11 @@ static void up_dumpstate(void)
 
 	/* Get the limits on the user stack memory */
 
-	if (rtcb->pid == 0) {
-		ustackbase = g_idle_topstack - 4;
-		ustacksize = CONFIG_IDLETHREAD_STACKSIZE;
-	} else {
-		ustackbase = (uint32_t)rtcb->adj_stack_ptr;
-		ustacksize = (uint32_t)rtcb->adj_stack_size;
+	ustackbase = (uint32_t)rtcb->adj_stack_ptr;
+	ustacksize = (uint32_t)rtcb->adj_stack_size;
 #ifdef CONFIG_MPU_STACKGUARD
-		uguardsize = (uint32_t)rtcb->guard_size;
+	uguardsize = (uint32_t)rtcb->guard_size;
 #endif
-	}
 
 	lldbg("Current sp: %08x\n", sp);
 
@@ -715,11 +883,22 @@ static void up_dumpstate(void)
 
 	up_registerdump();
 
+#ifdef CONFIG_FRAME_POINTER
+	/* Dump the stack */
+	lldbg("*******************************************\n");
+	lldbg("Call stack of aborted task:\n");
+	lldbg("*******************************************\n");
 	dump_stack();
+#endif
 
 	/* Dump the state of all tasks (if available) */
 
 	up_showtasks();
+
+#ifdef CONFIG_FRAME_POINTER
+	/* Display the call stack of all tasks */
+	dump_all_stack();
+#endif
 
 #ifdef CONFIG_ARCH_USBDUMP
 	/* Dump USB trace data */
@@ -738,9 +917,11 @@ static void up_dumpstate(void)
 static void _up_assert(int errorcode) noreturn_function;
 static void _up_assert(int errorcode)
 {
+#ifndef CONFIG_BOARD_ASSERT_SYSTEM_HALT
 	/* Are we in an interrupt handler or the idle task? */
 
 	if (g_upassert || current_regs || (this_task())->pid == 0) {
+#endif
 		(void)irqsave();
 		for (;;) {
 #ifdef CONFIG_ARCH_LEDS
@@ -750,9 +931,11 @@ static void _up_assert(int errorcode)
 			up_mdelay(250);
 #endif
 		}
+#ifndef CONFIG_BOARD_ASSERT_SYSTEM_HALT
 	} else {
 		exit(errorcode);
 	}
+#endif
 }
 
 /****************************************************************************
@@ -765,7 +948,18 @@ static void _up_assert(int errorcode)
 
 void up_assert(const uint8_t *filename, int lineno)
 {
+
 	board_autoled_on(LED_ASSERTION);
+#if defined(CONFIG_DEBUG_DISPLAY_SYMBOL)
+	/* First time, when code reaches here abort_mode will be false and
+	   for next iteration (recursive abort case), abort_mode is already
+	   set to true and thus we can assume that we are in recursive abort
+	   mode and thus set the flag accordingly */
+	if (abort_mode) {
+		recursive_abort = true;
+	}
+	abort_mode = true;
+#endif
 
 #if CONFIG_TASK_NAME_SIZE > 0
 	lldbg("Assertion failed at file:%s line: %d task: %s\n", filename, lineno, this_task()->name);
@@ -774,9 +968,12 @@ void up_assert(const uint8_t *filename, int lineno)
 #endif
 	up_dumpstate();
 
-#ifdef CONFIG_BOARD_CRASHDUMP
+#if defined(CONFIG_BOARD_CRASHDUMP)
 	board_crashdump(up_getsp(), this_task(), (uint8_t *)filename, lineno);
 #endif
 
+#if defined(CONFIG_BOARD_ASSERT_AUTORESET)
+	(void)boardctl(BOARDIOC_RESET, 0);
+#endif
 	_up_assert(EXIT_FAILURE);
 }

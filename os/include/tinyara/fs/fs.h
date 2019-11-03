@@ -57,7 +57,9 @@
  ****************************************************************************/
 
 #include <tinyara/config.h>
+#ifndef NXFUSE_HOST_BUILD
 #include <tinyara/compiler.h>
+#endif
 
 #include <sys/types.h>
 #include <stdarg.h>
@@ -84,6 +86,20 @@
 #define __FS_FLAG_UBF   (1 << 3)       /* Buffer allocated by caller of setvbuf */
 #ifndef CONFIG_MOUNT_POINT
 #define CONFIG_MOUNT_POINT "/mnt/"
+#endif
+
+#ifdef CONFIG_FS_PROCFS
+#define PROCFS_FSTYPE "procfs"
+#define PROCFS_MOUNT_POINT "/proc"
+#endif
+
+#ifdef CONFIG_FS_TMPFS
+#define TMPFS_FSTYPE "tmpfs"
+#define TMPFS_MOUNT_POINT "/tmp"
+#endif
+#ifdef NXFUSE_HOST_BUILD
+#define  O_WROK    1
+#define  O_RDOK    2
 #endif
 
 /****************************************************************************
@@ -272,6 +288,9 @@ struct inode {
 struct file {
 	int f_oflags;				/* Open mode flags */
 	off_t f_pos;				/* File position */
+#ifdef NXFUSE_HOST_BUILD
+	off_t f_seekpos;                        /* File seek position */
+#endif
 	FAR struct inode *f_inode;	/* Driver interface */
 	void *f_priv;				/* Per file driver private data */
 };
@@ -286,14 +305,14 @@ struct filelist {
 #endif
 
 /* The following structure defines the list of files used for standard C I/O.
- * Note that TinyAra can support the standard C APIs without or without buffering
+ * Note that TinyAra can support the standard C APIs with or without buffering
  *
- * When buffering us used, the following described the usage of the I/O buffer.
+ * When buffering is used, the following describes the usage of the I/O buffer.
  * The buffer can be used for reading or writing -- but not both at the same time.
- * An fflush is implied between each change in directionof access.
+ * A fflush is implied between each change in direction of access.
  *
  * The field fs_bufread determines whether the buffer is being used for reading or
- * for writing as fillows:
+ * for writing as follows:
  *
  *              BUFFER
  *     +----------------------+ <- fs_bufstart Points to the beginning of the buffer.
@@ -308,7 +327,7 @@ struct filelist {
  *     | RD: Available        |                WR: =bufstart buffer used for writing.
  *     |                      |                RD: Pointer to last buffered read char+1
  *     +----------------------+
- *                              <- fs_bufend   Points to end end of the buffer+1
+ *                              <- fs_bufend   Points to the end of the buffer+1
  */
 
 #if CONFIG_NFILE_STREAMS > 0
@@ -359,7 +378,7 @@ extern "C" {
 #define EXTERN extern
 #endif
 
-/* fs_inode.c ***************************************************************/
+/* fs_initialize.c ***************************************************************/
 /****************************************************************************
  * Name: fs_initialize
  *
@@ -370,6 +389,16 @@ extern "C" {
  ****************************************************************************/
 
 void fs_initialize(void);
+
+/****************************************************************************
+ * Name: fs_auto_mount
+ *
+ * Description:
+ *   This is called from the OS initialization logic to auto mount
+ *   arch-independent file systems.
+ *
+ ****************************************************************************/
+void fs_auto_mount(void);
 
 /* fs_foreachmountpoint.c ***************************************************/
 /****************************************************************************
@@ -817,6 +846,19 @@ int file_fsync(FAR struct file *filep);
 int file_vfcntl(FAR struct file *filep, int cmd, va_list ap);
 #endif
 
+/* fs/driver/block/fs_blockproxy.c ******************************************/
+/****************************************************************************
+ * Name: unique_chardev_initialize
+ *
+ * Description:
+ *  Initialize a semphore for unique character device.
+ *
+ ****************************************************************************/
+
+#if !defined(CONFIG_DISABLE_PSEUDOFS_OPERATIONS) && !defined(CONFIG_DISABLE_MOUNTPOINT)
+void unique_chardev_initialize(void);
+#endif
+
 /* drivers/dev_null.c *******************************************************/
 /****************************************************************************
  * Name: devnull_register
@@ -936,6 +978,17 @@ ssize_t bchlib_read(FAR void *handle, FAR char *buffer, size_t offset, size_t le
  ****************************************************************************/
 
 ssize_t bchlib_write(FAR void *handle, FAR const char *buffer, size_t offset, size_t len);
+
+/* drivers/pipes/pipe.c ***********************************************/
+/****************************************************************************
+ * Name: pipe_initialize
+ *
+ * Description:
+ *   Initialize a semaphore for pipe
+ *
+ ****************************************************************************/
+
+void pipe_initialize(void);
 
 #undef EXTERN
 #if defined(__cplusplus)

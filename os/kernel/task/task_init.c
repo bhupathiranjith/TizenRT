@@ -115,9 +115,7 @@
  *   stack      - Start of the pre-allocated stack
  *   stack_size - Size (in bytes) of the stack allocated
  *   entry      - Application start point of the new task
- *   arg        - A pointer to an array of input parameters. Up to
- *                CONFIG_MAX_TASK_ARG parameters may be provided.  If fewer
- *                than CONFIG_MAX_TASK_ARG parameters are passed, the list
+ *   arg        - A pointer to an array of input parameters. The array
  *                should be terminated with a NULL argv[] value. If no
  *                parameters are required, argv may be NULL.
  *
@@ -183,10 +181,15 @@ int task_init(FAR struct tcb_s *tcb, const char *name, int priority, FAR uint32_
 	ret = group_initialize(ttcb);
 	if (ret < 0) {
 		errcode = -ret;
-		goto errout_with_group;
+		goto errout_with_setup;
 	}
 #endif
 	return OK;
+
+#ifdef HAVE_TASK_GROUP
+errout_with_setup:
+	sched_removeblocked((struct tcb_s *)ttcb);
+#endif
 
 errout_with_group:
 #ifdef HAVE_TASK_GROUP

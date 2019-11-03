@@ -21,11 +21,8 @@
 /// @brief Main Function for Network TestCase Example
 #include <tinyara/config.h>
 #include <stdio.h>
-#include <semaphore.h>
+#include "tc_common.h"
 #include "tc_internal.h"
-
-extern sem_t tc_sem;
-extern int working_tc;
 
 /****************************************************************************
  * Name: network_tc_main
@@ -33,16 +30,12 @@ extern int working_tc;
 #ifdef CONFIG_BUILD_KERNEL
 int main(int argc, FAR char *argv[])
 #else
-int network_tc_main(int argc, char *argv[])
+int tc_network_main(int argc, char *argv[])
 #endif
 {
-	sem_wait(&tc_sem);
-	working_tc++;
-
-	total_pass = 0;
-	total_fail = 0;
-
-	printf("\n########## Network TC Start ##########\n");
+	if (testcase_state_handler(TC_START, "Network TC") == ERROR) {
+		return ERROR;
+	}
 
 #ifdef CONFIG_TC_NET_SOCKET
 	net_socket_main();
@@ -113,11 +106,34 @@ int network_tc_main(int argc, char *argv[])
 #ifdef CONFIG_TC_NET_DUP
 	net_dup_main();
 #endif
-
-	printf("\n########## Network TC End [PASS : %d, FAIL : %d] ##########\n", total_pass, total_fail);
-
-	working_tc--;
-	sem_post(&tc_sem);
+#ifdef CONFIG_ITC_NET_CLOSE
+	itc_net_close_main();
+#endif
+#ifdef CONFIG_ITC_NET_DUP
+	itc_net_dup_main();
+#endif
+#ifdef CONFIG_ITC_NET_FCNTL
+	itc_net_fcntl_main();
+#endif
+#ifdef CONFIG_ITC_NET_LISTEN
+	itc_net_listen_main();
+#endif
+#ifdef CONFIG_ITC_NET_SETSOCKOPT
+	itc_net_setsockopt_main();
+#endif
+#ifdef CONFIG_ITC_NET_SEND
+	itc_net_send_main();
+#endif
+#ifdef CONFIG_ITC_NET_INET
+	itc_net_inet_main();
+#endif
+#ifdef CONFIG_ITC_NET_NETDB
+	itc_net_netdb_main();
+#endif
+#ifdef CONFIG_ITC_NET_CONNECT
+	itc_net_connect_main();
+#endif
+	(void)testcase_state_handler(TC_END, "Network TC");
 
 	return 0;
 }

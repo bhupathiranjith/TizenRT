@@ -27,7 +27,6 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <errno.h>
-#include <apps/shell/tash.h>
 #include <network/mqtt/mqtt_api.h>
 #include "tc_common.h"
 
@@ -42,28 +41,20 @@
 #else
 #define UTC_MQTT_LOGD
 #endif
-#define UTC_MQTT_WAIT_SIGNAL \
+#define UTC_MQTT_WAIT_SIGNAL					\
 	do {										\
-		pthread_mutex_lock(&g_ocfmutex);			\
-		pthread_cond_wait(&g_ocfcond, &g_ocfmutex);	\
-		pthread_mutex_unlock(&g_ocfmutex);			\
+		sem_wait(&g_mqtt_signal);				\
 	} while (0)
 
 #define UTC_MQTT_SEND_SIGNAL					\
 	do {										\
-		pthread_mutex_lock(&g_ocfmutex);			\
-		pthread_cond_signal(&g_ocfcond);			\
-		pthread_mutex_unlock(&g_ocfmutex);			\
+		sem_post(&g_mqtt_signal);				\
 	} while (0)
 
 static char g_mqtt_msg[] = UTC_MQTT_MESSAGE;
-static pthread_mutex_t g_ocfmutex = PTHREAD_MUTEX_INITIALIZER;;
-static pthread_cond_t g_ocfcond;
 static mqtt_client_t *g_mqtt_pub_handle = NULL;
 static mqtt_client_t *g_mqtt_sub_handle = NULL;
-
-extern sem_t tc_sem;
-extern int working_tc;
+static sem_t g_mqtt_signal;
 /**
  * Private Functions
  */
@@ -71,26 +62,21 @@ static int _utc_mqtt_init(void)
 {
 	g_mqtt_sub_handle = g_mqtt_pub_handle = NULL;
 
-	int res = pthread_mutex_init(&g_ocfmutex, NULL);
-	if (res != 0) {
+	int ret = sem_init(&g_mqtt_signal, 0, 0);
+	if (ret != OK) {
 		UTC_MQTT_LOGE;
 		return -1;
 	}
-	res = pthread_cond_init(&g_ocfcond, NULL);
-	if (res != 0) {
-		UTC_MQTT_LOGE;
-		return -1;
-	}
-
 	return 0;
 }
 
 static void _utc_mqtt_deinit(void)
 {
-	pthread_mutex_destroy(&g_ocfmutex);
-	pthread_cond_destroy(&g_ocfcond);
-
-	return ;
+	int ret = sem_destroy(&g_mqtt_signal);
+	if (ret < 0) {
+		UTC_MQTT_LOGE;
+	}
+	return;
 }
 
 static void on_connect(void *client, int result)
@@ -426,14 +412,16 @@ static void utc_mqtt_deinit_client_p(void)
 }
 
 
-static int mqtt_utc(int argc, FAR char *argv[])
+#ifdef CONFIG_BUILD_KERNEL
+int main(int argc, FAR char *argv[])
+#else
+int utc_mqtt_main(int argc, char *argv[])
+#endif
 {
-	sem_wait(&tc_sem);
-	working_tc++;
+	if (testcase_state_handler(TC_START, "MQTT UTC") == ERROR) {
+		return ERROR;
+	}
 
-	total_fail = total_pass = 0;
-
-	printf("\n########## MQTT UTC Start ##########\n");
 	int res = _utc_mqtt_init();
 	if (res < 0) {
 		UTC_MQTT_LOGE;
@@ -456,27 +444,7 @@ static int mqtt_utc(int argc, FAR char *argv[])
 
 	_utc_mqtt_deinit();
 exit:
-	printf("\n########## MQTT UTC End [PASS : %d, FAIL : %d] ##########\n", total_pass, total_fail);
-
-	working_tc--;
-	sem_post(&tc_sem);
+	(void)testcase_state_handler(TC_END, "MQTT UTC");
 
 	return 0;
 }
-
-
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int utc_mqtt_main(int argc, char *argv[])
-#endif
-{
-
-#ifdef CONFIG_TASH
-	tash_cmd_install("mqtt_utc", mqtt_utc, TASH_EXECMD_SYNC);
-#else
-	mqtt_utc(argc, argv);
-#endif
-	return 0;
-}
-

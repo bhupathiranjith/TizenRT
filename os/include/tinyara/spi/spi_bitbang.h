@@ -49,16 +49,16 @@
  *
  ****************************************************************************/
 
-#ifndef __INCLUDE_SPI_SPI_BITBANG_H
-#define __INCLUDE_SPI_SPI_BITBANG_H
+#ifndef __INCLUDE_TINYARA_SPI_SPI_BITBANG_H
+#define __INCLUDE_TINYARA_SPI_SPI_BITBANG_H
 
 /****************************************************************************
  * Included Files
  ****************************************************************************/
 
 #include <tinyara/config.h>
-
 #include <semaphore.h>
+#include <debug.h>
 
 #include <tinyara/spi/spi.h>
 
@@ -67,27 +67,6 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-/* Debug ********************************************************************/
-/* Check if SPI debut is enabled (non-standard.. no support in
- * include/debug.h
- */
-
-#ifndef CONFIG_DEBUG
-#undef CONFIG_DEBUG_VERBOSE
-#undef CONFIG_DEBUG_SPI
-#endif
-
-#ifdef CONFIG_DEBUG_SPI
-#define spidbg lldbg
-#ifdef CONFIG_DEBUG_VERBOSE
-#define spivdbg lldbg
-#else
-#define spivdbg(x...)
-#endif
-#else
-#define spidbg(x...)
-#define spivdbg(x...)
-#endif
 
 /****************************************************************************
  * Private Types
@@ -185,4 +164,4 @@ FAR struct spi_dev_s *spi_create_bitbang(FAR const struct spi_bitbang_ops_s *low
 
 #endif							/* __ASSEMBLY__ */
 #endif							/* CONFIG_SPI_BITBANG */
-#endif							/* __INCLUDE_SPI_SPI_BITBANG_H */
+#endif				/* __INCLUDE_TINYARA_SPI_SPI_BITBANG_H */

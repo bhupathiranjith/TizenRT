@@ -136,8 +136,7 @@
  * some configurations.
  */
 
-#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-	defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 
 /* If the floating point unit is present and enabled, then save the
  * floating point registers as well as normal ARM registers.  This only
@@ -146,9 +145,9 @@
  */
 
 #if defined(CONFIG_ARCH_FPU) && !defined(CONFIG_ARMV7M_CMNVECTOR)
-#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t *)current_regs)
 #else
-#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t *)current_regs)
 #endif
 #define up_restorestate(regs) (current_regs = regs)
 
@@ -163,9 +162,9 @@
  */
 
 #if defined(CONFIG_ARCH_FPU)
-#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t *)current_regs)
 #else
-#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t *)current_regs)
 #endif
 #define up_restorestate(regs) (current_regs = regs)
 
@@ -181,11 +180,11 @@
  */
 
 #if defined(CONFIG_ARCH_FPU)
-#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyarmstate(regs, (uint32_t *)current_regs)
 #else
-#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t*)current_regs)
+#define up_savestate(regs)  up_copyfullstate(regs, (uint32_t *)current_regs)
 #endif
-#define up_restorestate(regs) up_copyfullstate((uint32_t*)current_regs, regs)
+#define up_restorestate(regs) up_copyfullstate((uint32_t *)current_regs, regs)
 
 #endif
 
@@ -349,8 +348,7 @@ void up_pminitialize(void);
 #define up_pminitialize()
 #endif
 
-#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-	defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 void up_systemreset(void) noreturn_function;
 #endif
 
@@ -368,8 +366,7 @@ uint32_t *arm_doirq(int irq, uint32_t *regs);
 
 /* Exception handling logic unique to the Cortex-M family */
 
-#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
-	defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 
 /* Interrupt acknowledge and dispatch */
 
@@ -381,7 +378,7 @@ uint32_t *up_doirq(int irq, uint32_t *regs);
 int up_svcall(int irq, FAR void *context, FAR void *arg);
 int up_hardfault(int irq, FAR void *context, FAR void *arg);
 
-#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4) || defined(CONFIG_ARCH_CORTEXM7)
 
 int up_memfault(int irq, FAR void *context, FAR void *arg);
 
@@ -502,14 +499,6 @@ void weak_function up_dmainitialize(void);
 void up_l2ccinitialize(void);
 #else
 #define up_l2ccinitialize()
-#endif
-
-/* Memory management ********************************************************/
-
-#if CONFIG_MM_REGIONS > 1
-void up_addregion(void);
-#else
-#define up_addregion()
 #endif
 
 /* Watchdog timer ***********************************************************/

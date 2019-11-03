@@ -23,8 +23,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <semaphore.h>
+#include "tc_common.h"
 #include "utc_internal.h"
-#include <apps/shell/tash.h>
 
 /***************************************************************************
  * Definitions
@@ -44,15 +44,15 @@
 extern sem_t tc_sem;
 extern int working_tc;
 
-int sysio_utc(int argc, FAR char *argv[])
+#ifdef CONFIG_BUILD_KERNEL
+int main(int argc, FAR char *argv[])
+#else
+int utc_sysio_main(int argc, char *argv[])
+#endif
 {
-	sem_wait(&tc_sem);
-	working_tc++;
-
-	printf("\n########## SystemIO UTC Start ##########\n");
-
-	total_pass = 0;
-	total_fail = 0;
+	if (testcase_state_handler(TC_START, "SystemIO UTC") == ERROR) {
+		return ERROR;
+	}
 
 #ifdef CONFIG_SYSIO_UTC_GPIO
 	utc_gpio_main();
@@ -74,25 +74,7 @@ int sysio_utc(int argc, FAR char *argv[])
 	utc_uart_main();
 #endif
 
-	printf("\n########## SystemIO UTC End [PASS : %d, FAIL : %d] ##########\n", total_pass, total_fail);
+	(void)testcase_state_handler(TC_END, "SystemIO UTC");
 
-	working_tc--;
-	sem_post(&tc_sem);
-
-	return 0;
-}
-
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int utc_sysio_main(int argc, char *argv[])
-#endif
-{
-
-#ifdef CONFIG_TASH
-	tash_cmd_install("sysio_utc", sysio_utc, TASH_EXECMD_SYNC);
-#else
-	sysio_utc(argc, argv);
-#endif
 	return 0;
 }

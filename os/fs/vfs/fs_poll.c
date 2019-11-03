@@ -156,15 +156,28 @@ static int poll_fdsetup(int fd, FAR struct pollfd *fds, bool setup)
 		return ERROR;
 	}
 
-	/* Is a driver registered? Does it support the poll method?
-	 * If not, return -ENOSYS
-	 */
-
 	inode = filep->f_inode;
-	if (inode && inode->u.i_ops && inode->u.i_ops->poll) {
-		/* Yes, then setup the poll */
 
-		ret = (int)inode->u.i_ops->poll(filep, fds, setup);
+	if (inode) {
+		/* Is a driver registered? Does it support the poll method?
+		 * If not, return -ENOSYS
+		 */
+
+		if (INODE_IS_DRIVER(inode) && inode->u.i_ops && inode->u.i_ops->poll) {
+			/* Yes, then setup the poll */
+
+			ret = (int)inode->u.i_ops->poll(filep, fds, setup);
+		} else if (INODE_IS_MOUNTPT(inode) || INODE_IS_BLOCK(inode)) {
+			/* Regular files shall always poll TRUE for reading and writing */
+
+			if (setup) {
+				fds->revents |= (fds->events & (POLLIN | POLLOUT));
+				if (fds->revents != 0) {
+					sem_post(fds->sem);
+				}
+			}
+			ret = OK;
+		}
 	}
 
 	return ret;
@@ -194,6 +207,7 @@ static inline int poll_setup(FAR struct pollfd *fds, nfds_t nfds, sem_t *sem)
 		fds[i].sem = sem;
 		fds[i].revents = 0;
 		fds[i].priv = NULL;
+		fds[i].filep = NULL;
 
 		/* Check for invalid descriptors. "If the value of fd is less than 0,
 		 * events shall be ignored, and revents shall be set to 0 in that entry
@@ -318,6 +332,8 @@ int poll(FAR struct pollfd *fds, nfds_t nfds, int timeout)
 	sem_t sem;
 	int count = 0;
 	int ret;
+
+	DEBUGASSERT((nfds == 0) || (fds != NULL));
 
 	/* poll() is a cancellation point */
 	(void)enter_cancellation_point();

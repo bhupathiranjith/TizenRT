@@ -64,6 +64,8 @@
 #ifdef CONFIG_DEBUG_MM_HEAPINFO
 #include  <tinyara/sched.h>
 #endif
+#include "mm_node.h"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -140,8 +142,8 @@ void mm_free(FAR struct mm_heap_s *heap, FAR void *mem)
 	alloc_node = (struct mm_allocnode_s *)node;
 
 	if ((alloc_node->preceding & MM_ALLOC_BIT) != 0) {
-		heapinfo_subtract_size(alloc_node->pid, alloc_node->size);
-		heapinfo_update_total_size(heap, ((-1) * alloc_node->size));
+		heapinfo_subtract_size(heap, alloc_node->pid, alloc_node->size);
+		heapinfo_update_total_size(heap, ((-1) * alloc_node->size), alloc_node->pid);
 	}
 #endif
 	node->preceding &= ~MM_ALLOC_BIT;
@@ -163,11 +165,7 @@ void mm_free(FAR struct mm_heap_s *heap, FAR void *mem)
 		 * but there may not be a successor node.
 		 */
 
-		DEBUGASSERT(next->blink);
-		next->blink->flink = next->flink;
-		if (next->flink) {
-			next->flink->blink = next->blink;
-		}
+		REMOVE_NODE_FROM_LIST(next);
 
 		/* Then merge the two chunks */
 
@@ -186,11 +184,7 @@ void mm_free(FAR struct mm_heap_s *heap, FAR void *mem)
 		 * not be a successor node.
 		 */
 
-		DEBUGASSERT(prev->blink);
-		prev->blink->flink = prev->flink;
-		if (prev->flink) {
-			prev->flink->blink = prev->blink;
-		}
+		REMOVE_NODE_FROM_LIST(prev);
 
 		/* Then merge the two chunks */
 

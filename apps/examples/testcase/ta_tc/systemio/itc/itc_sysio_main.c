@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <semaphore.h>
+#include "tc_common.h"
 #include "itc_internal.h"
 
 /***************************************************************************
@@ -41,16 +42,15 @@
  * Name: sysio_tc_main
  ****************************************************************************/
 
-extern sem_t tc_sem;
-
-int itc_sysio_launcher(int argc, FAR char *argv[])
+#ifdef CONFIG_BUILD_KERNEL
+int main(int argc, FAR char *argv[])
+#else
+int itc_sysio_main(int argc, char *argv[])
+#endif
 {
-	total_pass = 0;
-	total_fail = 0;
-
-	sem_wait(&tc_sem);
-
-	printf("\n########## SystemIO ITC Start ##########\n");
+	if (testcase_state_handler(TC_START, "SystemIO ITC") == ERROR) {
+		return ERROR;
+	}
 
 #ifdef CONFIG_SYSIO_ITC_PWM
 	itc_pwm_main();
@@ -72,23 +72,7 @@ int itc_sysio_launcher(int argc, FAR char *argv[])
 	itc_gpio_main();
 #endif
 
-	printf("\n########## SystemIO ITC End [PASS : %d, FAIL : %d] ##########\n", total_pass, total_fail);
+	(void)testcase_state_handler(TC_END, "SystemIO ITC");
 
-	sem_post(&tc_sem);
-
-	return 0;
-}
-
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int itc_sysio_main(int argc, char *argv[])
-#endif
-{
-#ifdef CONFIG_TASH
-	tash_cmd_install("sysio_itc", itc_sysio_launcher, 0);
-#else
-	itc_sysio_launcher(argc, argv);
-#endif
 	return 0;
 }

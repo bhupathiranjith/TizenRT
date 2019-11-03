@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <strings.h>
 #ifndef _WIN32_WCE
 #ifndef CONFIG_TI_COMPILER
 #include <signal.h>
@@ -52,14 +53,5 @@
 #include <sys/select.h>
 
 #define ENOTSUP EOPNOTSUPP
-
-static inline int isblank(char c)
-{
-	if (c == ' ' || c == '\t') {
-		return 1;
-	} else {
-		return 0;
-	}
-}
 
 #endif							/* INCLUDES_H */

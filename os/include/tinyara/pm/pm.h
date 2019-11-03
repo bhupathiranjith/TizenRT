@@ -401,11 +401,29 @@ void pm_initialize(void);
  *               callback functions.
  *
  * Returned value:
- *    Zero (OK) on success; otherwise a negater errno value is returned.
+ *    Zero (OK) on success; otherwise a negated errno value is returned.
  *
  ****************************************************************************/
 
 int pm_register(int domain, FAR struct pm_callback_s *callbacks);
+
+/****************************************************************************
+ * Name: pm_unregister
+ *
+ * Description:
+ *   This function is called by a device driver in order to unregister
+ *   previously registered power management event callbacks.
+ *
+ * Input parameters:
+ *   callbacks - An instance of struct pm_callback_s providing the driver
+ *               callback functions.
+ *
+ * Returned value:
+ *    Zero (OK) on success; otherwise a negated errno value is returned.
+ *
+ ****************************************************************************/
+
+int pm_unregister(int domain, FAR struct pm_callback_s *callbacks);
 
 /****************************************************************************
  * Name: pm_activity
@@ -499,6 +517,22 @@ enum pm_state_e pm_checkstate(int domain);
 
 int pm_changestate(int domain, enum pm_state_e newstate);
 
+/****************************************************************************
+ * Name: pm_querystate
+ *
+ * Description:
+ *   This function returns the current power management state.
+ *
+ * Input Parameters:
+ *   domain - The PM domain to check
+ *
+ * Returned Value:
+ *   The current power management state.
+ *
+ ****************************************************************************/
+
+enum pm_state_e pm_querystate(int domain);
+
 #undef EXTERN
 #ifdef __cplusplus
 }
@@ -518,9 +552,11 @@ int pm_changestate(int domain, enum pm_state_e newstate);
 
 #define pm_initialize()
 #define pm_register(cb)             (0)
+#define pm_unregister(domain, cb)   (0)
 #define pm_activity(domain, prio)
 #define pm_checkstate(domain)       (0)
 #define pm_changestate(domain, state)
+#define pm_querystate(domain)       (0)
 
 #endif							/* CONFIG_PM */
 #endif							/* __INCLUDE_TINYARA_POWER_PM_H */

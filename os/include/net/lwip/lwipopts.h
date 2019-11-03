@@ -63,11 +63,54 @@
  * In this platform, DHCP client and server are supported through netutils
  * Instead of using lwIP DHCP, please use netutils dhcpc and dhcpd
  */
-#define LWIP_DHCPS                      0
-#define LWIP_DHCP                       0
+#ifdef CONFIG_LWIP_DHCPS
+#define LWIP_DHCPS                      CONFIG_LWIP_DHCPS
+#else
+#define LWIP_DHCPS 0
+#endif /* CONFIG_LWIP_DHCPS */
+
+#ifdef CONFIG_LWIP_DHCPC
+#define LWIP_DHCP                       CONFIG_LWIP_DHCPC
+#else
+#define LWIP_DHCP 0
+#endif /* CONFIG_LWIP_DHCP */
+
+#ifdef CONFIG_LWIP_DHCP_TCPIP_THREAD
+#define LWIP_DHCP_TCPIP_THREAD CONFIG_LWIP_DHCP_TCPIP_THREAD
+#else
+#define LWIP_DHCP_TCPIP_THREAD 0
+#endif
+
+#ifdef CONFIG_LWIP_DHCP_HOSTNAME
+#define LWIP_NETIF_HOSTNAME CONFIG_LWIP_DHCP_HOSTNAME
+#else
+#define LWIP_NETIF_HOSTNAME 0
+#endif
+
 #define LWIP_NETIF_API                  1
+
+#ifdef CONFIG_NET_ENABLE_LOOPBACK
+#define ENABLE_LOOPBACK    CONFIG_NET_ENABLE_LOOPBACK
+#endif
+
+#ifdef CONFIG_NET_LWIP_ETHERNET
+#define LWIP_ETHERNET    CONFIG_NET_LWIP_ETHERNET
+#endif
 /* --------- PreDefined Configurations -------------*/
 
+/* ---------- IPv options ---------- */
+
+#ifdef CONFIG_NET_IPv4
+#define LWIP_IPV4 CONFIG_NET_IPv4
+#else
+#define LWIP_IPV4 0
+#endif
+
+#ifdef CONFIG_NET_IPv6
+#define LWIP_IPV6 CONFIG_NET_IPv6
+#else
+#define LWIP_IPV6 0
+#endif
 
 /* ---------- ARP options ---------- */
 #ifdef CONFIG_NET_ARP
@@ -86,7 +129,6 @@
 #define ARP_QUEUEING                    CONFIG_NET_ARP_QUEUEING
 #endif
 
-
 #ifdef CONFIG_NET_ETHARP_TRUST_IP_MAC
 #define ETHARP_TRUST_IP_MAC             CONFIG_NET_ETHARP_TRUST_IP_MAC
 #endif
@@ -102,6 +144,87 @@
 /* ---------- ARP options ---------- */
 
 
+/* ---------- ND6 options ---------- */
+#ifdef CONFIG_NET_IPv6_ND_QUEUEING
+#define LWIP_ND6_QUEUEING	CONFIG_NET_IPv6_ND_QUEUEING
+#else
+#define LWIP_ND6_QUEUEING	0
+#endif
+
+
+#ifdef CONFIG_NET_IPv6_ND_QUEUE
+#define MEMP_NUM_ND6_QUEUE	CONFIG_NET_IPv6_ND_QUEUE
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_NUM_NEIGHBORS
+#define LWIP_ND6_NUM_NEIGHBORS	CONFIG_NET_IPv6_ND_NUM_NEIGHBORS
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_NUM_DESTINATIONS
+#define LWIP_ND6_NUM_DESTINATIONS	CONFIG_NET_IPv6_ND_NUM_DESTINATIONS
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_NUM_PREFIXES
+#define LWIP_ND6_NUM_PREFIXES		CONFIG_NET_IPv6_ND_NUM_PREFIXES
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_NUM_ROUTERS
+#define LWIP_ND6_NUM_ROUTERS		CONFIG_NET_IPv6_ND_NUM_ROUTERS
+#endif
+
+
+#ifdef CONFIG_NET_IPv6_ND_MAX_MULTICAST_SOLICIT
+#define LWIP_ND6_MAX_MULTICAST_SOLICIT	CONFIG_NET_IPv6_ND_MAX_MULTICAST_SOLICIT
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_MAX_UNICAST_SOLICIT
+#define LWIP_ND6_MAX_UNICAST_SOLICIT	CONFIG_NET_IPv6_ND_MAX_UNICAST_SOLICIT
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_MAX_SOLICIT_INTERVAL
+#define LWIP_ND6_MAX_SOLICIT_INTERVAL CONFIG_NET_IPv6_ND_MAX_SOLICIT_INTERVAL
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_REACHABLE_TIME
+#define LWIP_ND6_MAX_ANYCAST_DELAY_TIME	CONFIG_NET_IPv6_ND_REACHABLE_TIME
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_RETRANS_TIMER
+#define LWIP_ND6_RETRANS_TIMER		CONFIG_NET_IPv6_ND_RETRANS_TIMER
+#endif
+
+
+#ifdef CONFIG_NET_IPv6_ND_DELAY_FIRST_PROBE_TIME
+#define LWIP_ND6_DELAY_FIRST_PROBE_TIME	CONFIG_NET_IPv6_ND_DELAY_FIRST_PROBE_TIME
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_ALLOW_RA_UPDATES
+#define LWIP_ND6_ALLOW_RA_UPDATES	CONFIG_NET_IPv6_ND_ALLOW_RA_UPDATES
+#else
+#define LWIP_ND6_ALLOW_RA_UPDATES	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_TCP_REACHABILITY_HINTS
+#define LWIP_ND6_TCP_REACHABILITY_HINTS	CONFIG_NET_IPv6_ND_TCP_REACHABILITY_HINTS
+#else
+#define LWIP_ND6_TCP_REACHABILITY_HINTS	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_RDNSS_MAX_DNS_SERVERS
+#define LWIP_ND6_RDNSS_MAX_DNS_SERVERS	CONFIG_NET_IPv6_ND_RDNSS_MAX_DNS_SERVERS
+#endif
+
+/* ---------- ND6 options ---------- */
+
+
+/* ---------- DHCP6 options ---------- */
+
+#ifdef CONFIG_NET_IPv6_DHCP
+#define LWIP_IPV6_DHCP6			CONFIG_NET_IPv6_DHCP
+#else
+#define LWIP_IPV6_DHCP6			0
+#endif
+
 /* ---------- VLAN options ---------- */
 #ifdef CONFIG_NET_LWIP_VLAN
 #define ETHARP_SUPPORT_VLAN             1
@@ -113,39 +236,105 @@
 #endif
 /* ---------- VLAN options ---------- */
 
-
 /* ---------- IP options ---------- */
 
 #ifdef CONFIG_NET_IP_FORWARD
-#define IP_FORWARD                      CONFIG_NET_IP_FORWARD
+#define IP_FORWARD                      1
+#else
+#define IP_FORWARD                      0
 #endif
 
 #ifdef CONFIG_NET_IP_OPTIONS_ALLOWED
-#define IP_OPTIONS_ALLOWED              CONFIG_NET_IP_OPTIONS_ALLOWED
+#define IP_OPTIONS_ALLOWED              1
+#else
+#define IP_OPTIONS_ALLOWED              0
 #endif
 
 #ifdef CONFIG_NET_IP_FRAG
-#define IP_FRAG	                       CONFIG_NET_IP_FRAG
+#define IP_FRAG	                       1
+#else
+#define IP_FRAG	                       0
 #endif
 
 #ifdef CONFIG_NET_IP_REASSEMBLY
-#define IP_REASSEMBLY                  CONFIG_NET_IP_REASSEMBLY
+#define IP_REASSEMBLY                  1
+#else
+#define IP_REASSEMBLY                  0
 #endif
 
+/* if undefined, the value set in the lwip/opts.h */
 #ifdef CONFIG_NET_IPV4_REASS_MAX_PBUFS
 #define IP_REASS_MAX_PBUFS	           CONFIG_NET_IPV4_REASS_MAX_PBUFS
 #endif
 
+/* if undefined, the value set in the lwip/opts.h */
 #ifdef CONFIG_NET_IPV4_REASS_MAXAGE
 #define IP_REASS_MAXAGE	               CONFIG_NET_IPV4_REASS_MAXAGE
 #endif
 
+/* if undefined, the value set in the lwip/opts.h */
 #ifdef CONFIG_NET_IP_DEFAULT_TTL
 #define IP_DEFAULT_TTL                 CONFIG_NET_IP_DEFAULT_TTL
 #endif
 
 /* ---------- IP options ---------- */
 
+/* ---------- IPv6 options ---------- */
+#ifdef CONFIG_NET_IPv6
+#define LWIP_IPV6			CONFIG_NET_IPv6
+#else
+#define LWIP_IPV6			0
+#endif
+
+#ifdef CONFIG_NET_IPv6_NUM_ADDRESSES
+#define LWIP_IPV6_NUM_ADDRESSES		CONFIG_NET_IPv6_NUM_ADDRESSES
+#endif
+
+#ifdef CONFIG_NET_IPv6_FORWARD
+#define LWIP_IPV6_FORWARD		CONFIG_NET_IPv6_FORWARD
+#else
+#define LWIP_IPV6_FORWARD		0
+#endif
+
+#ifdef CONFIG_NET_IPv6_FRAG
+#define LWIP_IPV6_FRAG			CONFIG_NET_IPv6_FRAG
+#else
+#define LWIP_IPV6_FRAG			0
+#endif
+
+#ifdef CONFIG_NET_IPv6_REASS
+#define LWIP_IPV6_REASS			CONFIG_NET_IPv6_REASS
+#else
+#define LWIP_IPV6_REASS			0
+#endif
+
+#ifdef CONFIG_NET_IPV6_REASS_MAXAGE
+#define LWIP_IPV6_REASS_MAXAGE	               CONFIG_NET_IPV6_REASS_MAXAGE
+#endif
+
+#ifdef CONFIG_NET_IPv6_SEND_ROUTER_SOLICIT
+#define LWIP_IPV6_SEND_ROUTER_SOLICIT	CONFIG_NET_IPv6_SEND_ROUTER_SOLICIT
+#else
+#define LWIP_IPV6_SEND_ROUTER_SOLICIT	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_AUTOCONFIG
+#define LWIP_IPV6_AUTOCONFIG		CONFIG_NET_IPv6_AUTOCONFIG
+#else
+#define LWIP_IPV6_AUTOCONFIG		0
+#endif
+
+#ifdef CONFIG_NET_IPv6_DUP_DETECT_ATTEMPTS
+#define LWIP_IPV6_DUP_DETECT_ATTEMPTS	CONFIG_NET_IPv6_DUP_DETECT_ATTEMPTS
+#endif
+
+#ifdef CONFIG_NET_IPv6_PMTU_FOR_MULTICAST
+#define LWIP_IPV6_PMTU_FOR_MULTICAST		CONFIG_NET_IPv6_PMTU_FOR_MULTICAST
+#else
+#define LWIP_IPV6_PMTU_FOR_MULTICAST		0
+#endif
+
+/* ---------- IPv6 options ---------- */
 
 /* ---------- ICMP options ---------- */
 #ifdef CONFIG_NET_ICMP
@@ -156,8 +345,12 @@
 #define LWIP_BROADCAST_PING             CONFIG_NET_BROADCAST_PING
 #endif
 
-#ifdef CONFIG_NET_MULTICAST_PING
-#define LWIP_MULTICAST_PING             CONFIG_NET_MULTICAST_PING
+#ifdef CONFIG_NET_MULTICAST_PING4
+#define LWIP_MULTICAST_PING4		CONFIG_NET_MULTICAST_PING4
+#endif
+
+#ifdef CONFIG_NET_MULTICAST_PING6
+#define LWIP_MULTICAST_PING6		CONFIG_NET_MULTICAST_PING6
 #endif
 /* ---------- ICMP options ---------- */
 
@@ -243,12 +436,11 @@
 #define LWIP_TCP_KEEPALIVE              CONFIG_NET_TCP_KEEPALIVE
 #endif
 
-#ifdef CONFIG_NET_TCP_WND_UPDATE_THREASHOLD
-#define TCP_WND_UPDATE_THREASHOLD	CONFIG_NET_TCP_WND_UPDATE_THREASHOLD
+#ifdef CONFIG_NET_TCP_WND_UPDATE_THRESHOLD
+#define TCP_WND_UPDATE_THRESHOLD	CONFIG_NET_TCP_WND_UPDATE_THRESHOLD
 #endif
 
 /* ---------- TCP options ---------- */
-
 
 /* ---------- UDP options ---------- */
 
@@ -270,8 +462,6 @@
 #endif
 
 /* ---------- UDP options ---------- */
-
-
 
 /* ---------- SNMP options ---------- */
 #ifdef CONFIG_NET_LWIP_SNMP
@@ -298,7 +488,6 @@
 #define SNMP_MAX_TREE_DEPTH             CONFIG_NET_LWIP_SNMP_MAX_TREE_DEPTH
 #endif
 /* ---------- SNMP options ---------- */
-
 
 /* ---------- Memory options ---------- */
 
@@ -396,12 +585,12 @@
 #define MEMP_NUM_NETCONN	CONFIG_NET_MEMP_NUM_NETCONN
 #endif
 */
-#ifdef CONFIG_NET_MEMP_NUM_TCPIP_MSG_API 
-#define MEMP_NUM_TCPIP_MSG_API  CONFIG_NET_MEMP_NUM_TCPIP_MSG_API
+#ifdef CONFIG_NET_MEMP_NUM_TCPIP_MSG_API
+#define MEMP_NUM_TCPIP_MSG_API		CONFIG_NET_MEMP_NUM_TCPIP_MSG_API
 #endif
 
-#ifdef CONFIG_NET_MEMP_NUM_TCPIP_MSG_INPKT 
-#define MEMP_NUM_TCPIP_MSG_INPKT  CONFIG_NET_MEMP_NUM_TCPIP_MSG_INPKT
+#ifdef CONFIG_NET_MEMP_NUM_TCPIP_MSG_INPKT
+#define MEMP_NUM_TCPIP_MSG_INPKT	CONFIG_NET_MEMP_NUM_TCPIP_MSG_INPKT
 #endif
 
 #ifdef CONFIG_NET_MEMP_NUM_SNMP_NODE
@@ -430,7 +619,6 @@
 
 /*---------- Interanl Memory Pool Sizes ----*/
 
-
 /* ---------- Raw Socket options ---------- */
 #ifdef CONFIG_NET_RAW
 #define LWIP_RAW	         CONFIG_NET_RAW
@@ -439,7 +627,6 @@
 #ifdef CONFIG_NET_RAW_TTL
 #define RAW_TTL	             CONFIG_NET_RAW_TTL
 #endif
-
 
 /* ---------- Socket options ---------- */
 
@@ -471,7 +658,7 @@
 
 #ifdef CONFIG_NSOCKET_DESCRIPTORS
 #define MEMP_NUM_NETCONN CONFIG_NSOCKET_DESCRIPTORS
-#define MEMP_NUM_RAW_PCB CONFIG_NSOCKET_DESCRIPTORS 
+#define MEMP_NUM_RAW_PCB CONFIG_NSOCKET_DESCRIPTORS
 #endif
 
 #ifdef CONFIG_NET_TCP_KEEPALIVE
@@ -499,7 +686,6 @@
 #endif
 
 /* ---------- Socket options ---------- */
-
 
 /* ---------- SLIP options ---------- */
 #ifdef CONFIG_NET_LWIP_SLIP_INTERFACE
@@ -575,7 +761,6 @@
 #endif
 /* ---------- PPP options ---------- */
 
-
 /* ---------- System options ---------- */
 
 /* NO_SYS==1: Provides VERY minimal functionality. Otherwise,
@@ -583,14 +768,13 @@
  * It should be set NO_SYS for TizenRT.
  */
 #define NO_SYS 0
-#define LWIP_RAND() rand()
 
 #ifdef CONFIG_NET_TCPIP_CORE_LOCKING
-#define TCPIP_CORE_LOCKING	CONFIG_NET_TCPIP_CORE_LOCKING
+#define LWIP_TCPIP_CORE_LOCKING CONFIG_NET_TCPIP_CORE_LOCKING
 #endif
 
 #ifdef CONFIG_NET_TCPIP_CORE_LOCKING_INPUT
-#define TCPIP_CORE_LOCKING_INPUT	CONFIG_NET_TCPIP_CORE_LOCKING_INPUT
+#define LWIP_TCPIP_CORE_LOCKING_INPUT CONFIG_NET_TCPIP_CORE_LOCKING_INPUT
 #endif
 
 #ifdef CONFIG_NET_TCPIP_THREAD_NAME
@@ -625,7 +809,6 @@
 #define DEFAULT_THREAD_STACKSIZE	CONFIG_NET_DEFAULT_THREAD_STACKSIZE
 #endif
 
-
 /* ---------- Mailbox options ---------- */
 
 #ifdef CONFIG_NET_DEFAULT_ACCEPTMBOX_SIZE
@@ -649,7 +832,6 @@
 #endif
 
 /* ---------- Mailbox options ---------- */
-
 
 /* ---------- Debug options ---------- */
 #ifdef CONFIG_NET_LWIP_ASSERT
@@ -835,15 +1017,32 @@
 #define AUTOIP_DEBUG	LWIP_DBG_OFF
 #endif
 
+#ifdef CONFIG_NET_DHCP_DEBUG
+#define DHCP_DEBUG	LWIP_DBG_ON
+#else
+#define DHCP_DEBUG	LWIP_DBG_OFF
+#endif
+
 #ifdef CONFIG_NET_POLL_DEBUG
 #define POLL_DEBUG	LWIP_DBG_ON
 #else
 #define POLL_DEBUG	LWIP_DBG_OFF
 #endif
 
+#ifdef CONFIG_NET_IPv6_DEBUG
+#define IP6_DEBUG	LWIP_DBG_ON
+#else
+#define IP6_DEBUG	LWIP_DBG_OFF
 #endif
-/* ---------- Debug options ---------- */
 
+#ifdef CONFIG_NET_ND6_DEBUG
+#define ND6_DEBUG	LWIP_DBG_ON
+#else
+#define ND6_DEBUG	LWIP_DBG_OFF
+#endif
+
+#endif /* CONFIG_NET_LWIP_DEBUG */
+/* ---------- Debug options ---------- */
 
 /* ---------- Stat options ---------- */
 
@@ -899,13 +1098,80 @@
 #define SYS_STATS	CONFIG_NET_SYS_STATS
 #endif
 
+#ifdef CONFIG_NET_IPv6_STATS
+#define IP6_STATS	CONFIG_NET_IPv6_STATS
+#else
+#define IP6_STATS	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_ICMP_STATS
+#define ICMP6_STATS	CONFIG_NET_IPv6_ICMP_STATS
+#else
+#define ICMP6_STATS	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_FRAG_STATS
+#define IP6_FRAG_STATS	CONFIG_NET_IPv6_FRAG_STATS
+#else
+#define IP6_FRAG_STATS	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_MLD_STATS
+#define MLD6_STATS	CONFIG_NET_IPv6_MLD_STATS
+#else
+#define MLD6_STATS	0
+#endif
+
+#ifdef CONFIG_NET_IPv6_ND_STATS
+#define ND6_STATS	CONFIG_NET_IPv6_ND_STATS
+#else
+#define ND6_STATS	0
+#endif
+
+/* ---------- DNS options --------- */
+
 /* ---------- Stat options ---------- */
+#ifdef CONFIG_NET_LWIP_NETDB
+#define LWIP_DNS CONFIG_NET_LWIP_NETDB
+#endif
+
+#if LWIP_DNS
+
+#ifdef CONFIG_NET_DNS_TABLE_SIZE
+#define DNS_TABLE_SIZE	CONFIG_NET_DNS_TABLE_SIZE
+#endif
+
+#ifdef CONFIG_NET_DNS_MAX_NAME_LENGTH
+#define DNS_MAX_NAME_LENGTH CONFIG_NET_DNS_MAX_NAME_LENGTH
+#endif
+
+#ifdef CONFIG_NET_DNS_MAX_SERVERS
+#define DNS_MAX_SERVERS CONFIG_NET_DNS_MAX_SERVERS
+#endif
+
+#ifdef CONFIG_NET_DNS_DOES_NAME_CHECK
+#define DNS_DOES_NAME_CHECK CONFIG_NET_DNS_DOES_NAME_CHECK
+#endif
+
+#ifdef CONFIG_NET_DNS_SECURE
+#define LWIP_DNS_SECURE CONFIG_NET_DNS_SECURE
+#endif
+
+#ifdef CONFIG_NET_DNS_LOCAL_HOSTLIST
+#define DNS_LOCAL_HOSTLIST CONFIG_NET_DNS_LOCAL_HOSTLIST
+
+#ifdef CONFIG_NET_DNS_LOCAL_HOSTLIST_IS_DYNAMIC
+#define DNS_LOCAL_HOSTLIST_IS_DYNAMIC CONFIG_NET_DNS_LOCAL_HOSTLIST_IS_DYNAMIC
+#endif
+#endif /* CONFIG_NET_DNS_LOCAL_HOSTLIST */
+
+#endif /* LWIP_DNS */
+/* ---------- End of DNS options ---------*/
 
 
 /* ----------Else ----------------*/
 #ifdef CONFIG_NET_LWIP_LOOPBACK_INTERFACE
 #define LWIP_HAVE_LOOPIF                CONFIG_NET_LWIP_LOOPBACK_INTERFACE
 #endif
-
 
 #endif							/* __LWIP_LWIPOPTS_H__ */

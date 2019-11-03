@@ -56,6 +56,7 @@
 
 #include <tinyara/config.h>
 
+#include <sys/types.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -65,6 +66,9 @@
 #include <mqueue.h>
 #include <sched.h>
 #include <errno.h>
+#ifndef CONFIG_DISABLE_SIGNALS
+#include <signal.h>
+#endif
 
 #include "kernel_sample.h"
 
@@ -348,6 +352,7 @@ void mqueue_test(void)
 		printf("mqueue_test: ERROR sender thread exited with %d errors\n", (int)result);
 	}
 
+	expected = PTHREAD_CANCELED;
 #ifndef CONFIG_DISABLE_SIGNALS
 	/* Wake up the receiver thread with a signal */
 
@@ -359,24 +364,25 @@ void mqueue_test(void)
 	usleep(HALF_SECOND_USEC_USEC);
 #endif
 
+#ifndef CONFIG_SIGKILL_HANDLER
 	/* Then cancel the thread and see if it did */
 
 	printf("mqueue_test: Canceling receiver\n");
 
-	expected = PTHREAD_CANCELED;
 	status = pthread_cancel(receiver);
 	if (status == ESRCH) {
 		printf("mqueue_test: receiver has already terminated\n");
 		expected = (FAR void *)0;
 	}
+#endif
 
 	/* Check the result.  If the pthread was canceled, PTHREAD_CANCELED is the
 	 * correct result.  Zero might be returned if the thread ran to completion
 	 * before it was canceled.
 	 */
 
-	pthread_join(receiver, &result);
-	if (result != expected) {
+	status = pthread_join(receiver, &result);
+	if (status != OK || result != expected) {
 		printf("mqueue_test: ERROR receiver thread should have exited with %p\n", expected);
 		printf("             ERROR Instead exited with nerrors=%d\n", (int)result);
 	}

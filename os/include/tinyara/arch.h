@@ -67,7 +67,7 @@
  *    architecture-specific implementation in arch/
  *
  *    NOTE: up_ is supposed to stand for microprocessor; the u is like the
- *    Greek letter micron: ? So it would be µP which is a common shortening
+ *    Greek letter micron: ? So it would be ï¿½P which is a common shortening
  *    of the word microprocessor.
  *
  * 2. Microprocessor-Specific Interfaces.
@@ -682,6 +682,27 @@ void up_signal_dispatch(_sa_sigaction_t sighand, int signo, FAR siginfo_t *info,
 	!defined(CONFIG_DISABLE_SIGNALS)
 void up_signal_handler(_sa_sigaction_t sighand, int signo, FAR siginfo_t *info, FAR void *ucontext) noreturn_function;
 #endif
+
+/* Memory management ********************************************************/
+
+#if CONFIG_MM_REGIONS > 1
+void up_addregion(void);
+#else
+#define up_addregion()
+#endif
+
+/****************************************************************************
+ * Name: up_userspace
+ *
+ * Description:
+ *   For the case of the separate user-/kernel-space build, perform whatever
+ *   platform specific initialization of the user memory is required.
+ *   Normally this just means initializing the user space .data and .bss
+ *   segments.
+ *
+ ****************************************************************************/
+
+void up_userspace(void);
 
 /****************************************************************************
  * Name: up_allocate_heap
@@ -2105,6 +2126,38 @@ int up_getc(void);
  ****************************************************************************/
 
 void up_puts(FAR const char *str);
+
+#ifdef CONFIG_WATCHDOG_FOR_IRQ
+/****************************************************************************
+ * Name: up_wdog_init
+ *
+ * Description:
+ *   Initialize the watchdog for irq
+ *
+ ****************************************************************************/
+void up_wdog_init(uint16_t timeout);
+
+/****************************************************************************
+ * Name: up_wdog_keepalive
+ *
+ * Description:
+ *   Reset the watchdog timer for preventing timeouts.
+ *
+ ****************************************************************************/
+void up_wdog_keepalive(void);
+
+#endif
+
+#ifdef CONFIG_BUILD_PROTECTED
+/****************************************************************************
+ * Name: is_kernel_space
+ *
+ * Description:
+ *   Check the address is in kernel space or not
+ *
+ ****************************************************************************/
+bool is_kernel_space(void *addr);
+#endif
 
 #undef EXTERN
 #ifdef __cplusplus

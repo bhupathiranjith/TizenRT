@@ -57,10 +57,9 @@
  ****************************************************************************/
 
 #include <tinyara/config.h>
-
 #include <semaphore.h>
-
 #include <tinyara/fs/fs.h>
+#include <tinyara/clock.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -109,6 +108,36 @@ extern "C" {
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: sem_tickwait
+ *
+ * Description:
+ *   This function is a lighter weight version of sem_timedwait().  It is
+ *   non-standard and intended only for use within the RTOS.
+ *
+ * Parameters:
+ *   sem     - Semaphore object
+ *   start   - The system time that the delay is relative to.  If the
+ *             current time is not the same as the start time, then the
+ *             delay will be adjust so that the end time will be the same
+ *             in any event.
+ *   delay   - Ticks to wait from the start time until the semaphore is
+ *             posted.  If ticks is zero, then this function is equivalent
+ *             to sem_trywait().
+ *
+ * Return Value:
+ *   Zero (OK) is returned on success.
+ *   On failure, -1 (ERROR) is returned and the errno
+ *   is set appropriately:
+ *
+ *   ETIMEDOUT The semaphore could not be locked before the specified timeout
+ *             (delay) expired.
+ *   ENOMEM    Out of memory
+ *
+ ****************************************************************************/
+
+int sem_tickwait(FAR sem_t *sem, clock_t start, uint32_t delay);
 
 /****************************************************************************
  * Name: sem_reset
@@ -185,6 +214,45 @@ int sem_getprotocol(FAR sem_t *sem, FAR int *protocol);
  ****************************************************************************/
 
 int sem_setprotocol(FAR sem_t *sem, int protocol);
+
+#ifdef CONFIG_BINMGR_RECOVERY
+/****************************************************************************
+ * Name: sem_register
+ *
+ * Description:
+ *   Register semaphore to a list of kernel semaphores.
+ *
+ * Parameters:
+ *   sem - Semaphore descriptor
+ *
+ * Return Value:
+ *   None
+ *
+ * Assumptions:
+ *   This function may be called when semaphore in kernel region is initialized.
+ *
+ ****************************************************************************/
+void sem_register(FAR sem_t *sem);
+
+/****************************************************************************
+ * Name: sem_unregister
+ *
+ * Description:
+ *   Unegister semaphore from a list of kernel semaphores.
+ *
+ * Parameters:
+ *   sem - Semaphore descriptor
+ *
+ * Return Value:
+ *   None
+ *
+ * Assumptions:
+ *   This function may be called when semaphore in kernel region is destroyed.
+ *
+ ****************************************************************************/
+void sem_unregister(FAR sem_t *sem);
+#endif
+
 
 #undef EXTERN
 #ifdef __cplusplus

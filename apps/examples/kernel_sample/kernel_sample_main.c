@@ -464,12 +464,10 @@ static int user_main(int argc, char *argv[])
 		check_test_memory_usage();
 #endif /* CONFIG_PRIORITY_INHERITANCE && !CONFIG_DISABLE_SIGNALS && !CONFIG_DISABLE_PTHREAD */
 
-#if defined(CONFIG_ARCH_HAVE_VFORK) && defined(CONFIG_SCHED_WAITPID) && \
-	!defined(CONFIG_DISABLE_SIGNALS)
-		printf("\nuser_main: vfork() test\n");
-		vfork_test();
+#ifdef CONFIG_SCHED_WORKQUEUE
+		printf("\nuser_main: workqueue() test\n");
+		workqueue_test();
 #endif
-
 		/* Compare memory usage at time kernel_sample_main started until
 		 * user_main exits.  These should not be identical, but should
 		 * be similar enough that we can detect any serious OS memory
@@ -490,7 +488,7 @@ static int user_main(int argc, char *argv[])
 #endif
 	}
 
-	printf("user_main: Exitting\n");
+	printf("user_main: Exiting\n");
 	return 0;
 }
 

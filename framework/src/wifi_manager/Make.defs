@@ -16,12 +16,22 @@
 #
 ###########################################################################
 
-CSRCS += wifi_manager.c wifi_net.c
+ifeq ($(CONFIG_WIFI_MANAGER), y)
+CSRCS += wifi_manager.c
+CSRCS += wifi_profile.c
+CSRCS += wifi_manager_dhcp_internal.c
 
-ifeq ($(CONFIG_WPA_SUPPLICANT), y)
-CSRCS += wpa_wifi_utils.c
+ifeq ($(CONFIG_LWNL80211), y)
+CSRCS += wifi_utils_lwnl80211.c
+CSRCS += wifi_event_monitor_internal.c wifi_event_monitor.c
+else
+ifeq ($(CONFIG_SELECT_NO_DRIVER), y)
+CSRCS += virtual_wifi_utils.c
+endif
 endif
 
 DEPPATH += --dep-path src/wifi_manager
 VPATH += :src/wifi_manager
+
+endif
 
